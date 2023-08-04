@@ -18,4 +18,6 @@ The [wiki](https://google.com) has detailed usage guides for both regular users 
 As an open source project, any and all contributions are welcome! If you would like to contribute to UnityWebModkit, please fork the repository and open a PR with your changes in a new branch.
 
 ## License
-MIT
+MIT, Apache 2.0*
+
+**[WAIL](https://github.com/Qwokka/WAIL/tree/master) is licensed under Apache 2.0*
