@@ -6,7 +6,7 @@
   "types": "./lib/mod.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "del /q /s dist && npx webpack"
+    "build": "del /q /s dist && tsc && npx webpack"
   },
   "files": [
     "lib"

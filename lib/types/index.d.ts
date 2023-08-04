@@ -1,2 +1,0 @@
-export type InstantiateStreamingLike = (source: Response | PromiseLike<Response>, importObj?: WebAssembly.Imports | undefined) => Promise<WebAssembly.WebAssemblyInstantiatedSource>;
-//# sourceMappingURL=index.d.ts.map
