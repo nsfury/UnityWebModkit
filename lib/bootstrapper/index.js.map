@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../src/bootstrapper/index.ts"],"names":[],"mappings":";;;AAAA,wCAAqC;AAErC,SAAgB,SAAS;IACrB,IAAI,OAAO,MAAM,KAAK,WAAW,EAAE;QAC/B,OAAO,CAAC,GAAG,CAAC,uHAAuH,CAAC,CAAC;QACrI,OAAO;KACV;IACD,iBAAO,CAAC,MAAM,CAAC,IAAI,CAAC,uBAAuB,CAAC,CAAC;AACjD,CAAC;AAND,8BAMC"}

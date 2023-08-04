@@ -1,0 +1,21 @@
+{
+    "name": "unity-web-modkit-v2",
+    "version": "1.0.0",
+    "description": "",
+    "main": "./lib/mod.js",
+    "types": "./lib/mod.d.ts",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "files": [
+        "lib"
+    ],
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@rspack/cli": "^0.2.8",
+        "ts-node": "^10.9.1",
+        "typescript": "^5.1.6"
+    }
+}

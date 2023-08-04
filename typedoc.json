@@ -1,0 +1,8 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": [
+        "./src/mod.ts"
+    ],
+    "out": "docs",
+    "name": "Unity Web Modkit"
+}
