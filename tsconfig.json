@@ -12,6 +12,10 @@
     "allowJs": true,
     "outDir": "lib"
   },
-  "lib": ["es2015"],
-  "include": ["./src/**/*"]
+  "lib": [
+    "es2015"
+  ],
+  "include": [
+    "./src/**/*"
+  ]
 }
