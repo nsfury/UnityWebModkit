@@ -170,11 +170,13 @@ export class Runtime {
               useHook.typeName + "xx" + useHook.methodName + makeId(8);
             let injectFunc = null;
             if (!useHook.kind) {
-              injectFunc = (...args: any[]) => {
-                const wrappedArgs: any = args.map(
+              injectFunc = (...args: number[]) => {
+                const wrappedArgs: ValueWrapper[] = args.map(
                   (arg) => new ValueWrapper(arg)
                 );
                 const result = useHook.callback(...wrappedArgs);
+                // Unwrap arguments in case they were changed in the callback function
+                args = wrappedArgs.map((arg) => arg.val());
                 if (result === undefined || result === true) {
                   // @ts-ignore
                   const _game = window.game || game;
@@ -191,7 +193,7 @@ export class Runtime {
                 }
               };
             } else {
-              injectFunc = (...args: any[]) => {
+              injectFunc = (...args: number[]) => {
                 // @ts-ignore
                 const _game = window.game || game;
                 const tableName: string =
@@ -265,11 +267,13 @@ export class Runtime {
                 // @ts-ignore
                 injectFunc = new WebAssembly.Function(
                   { parameters: hook.params, results: hookResults },
-                  (...args: any[]) => {
+                  (...args: number[]) => {
                     const wrappedArgs = args.map(
                       (arg) => new ValueWrapper(arg)
                     );
                     const result = hook.callback(...wrappedArgs);
+                    // Unwrap arguments in case they were changed in the callback function
+                    args = wrappedArgs.map((arg) => arg.val());
                     if (result === undefined || result === true) {
                       if (hook.returnType) {
                         return originalFunc(...args);
@@ -282,7 +286,7 @@ export class Runtime {
                 // @ts-ignore
                 injectFunc = new WebAssembly.Function(
                   { parameters: hook.params, results: hookResults },
-                  (...args: any[]) => {
+                  (...args: number[]) => {
                     let originalResult = originalFunc(...args);
                     if (originalResult !== undefined)
                       originalResult = new ValueWrapper(originalResult);
