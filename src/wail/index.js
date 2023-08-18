@@ -76,7 +76,7 @@ const valueTypeStr = {
 };
 
 Object.entries(valueTypeStr).forEach(
-  ([str, code]) => (valueTypeStr[code] = str)
+  ([str, code]) => (valueTypeStr[code] = str),
 );
 
 const convertValueType = function (string) {
@@ -1415,7 +1415,7 @@ export class WailParser extends BufferReader {
       newEntry.globalType.contentType = options.globalType.contentType;
     } else {
       newEntry.globalType.contentType = convertValueType(
-        options.globalType.contentType
+        options.globalType.contentType,
       );
     }
 
@@ -1454,7 +1454,7 @@ export class WailParser extends BufferReader {
     if (typeof globalIndex === "number") {
       console.warn(
         "Using raw indexes in editGlobalEntry() can have unpredictable " +
-          "results. Consider using getGlobalIndex() instead"
+          "results. Consider using getGlobalIndex() instead",
       );
     } else if (!(globalIndex instanceof WailVariable)) {
       throw new Error("Invalid globalIndex in addCodeEntry()");
@@ -1472,7 +1472,7 @@ export class WailParser extends BufferReader {
       savedEntry.globalType.contentType = options.globalType.contentType;
     } else {
       savedEntry.globalType.contentType = convertValueType(
-        options.globalType.contentType
+        options.globalType.contentType,
       );
     }
 
@@ -1651,7 +1651,7 @@ export class WailParser extends BufferReader {
     if (typeof funcIndex === "number") {
       console.warn(
         "Using raw indexes in addCodeEntry() can have unpredictable " +
-          "results. Consider using getFunctionIndex() instead"
+          "results. Consider using getFunctionIndex() instead",
       );
     } else if (!(funcIndex instanceof WailVariable)) {
       throw new Error("Invalid funcIndex in addCodeEntry()");
@@ -1706,7 +1706,7 @@ export class WailParser extends BufferReader {
     if (typeof funcIndex === "number") {
       console.warn(
         "Using raw indexes in editCodeEntry() can have unpredictable " +
-          "results. Consider using getFunctionIndex() instead"
+          "results. Consider using getFunctionIndex() instead",
       );
     } else if (!(funcIndex instanceof WailVariable)) {
       throw new Error("Invalid funcIndex in addCodeEntry()");
@@ -1888,7 +1888,7 @@ export class WailParser extends BufferReader {
 
     if (id > MAX_SECTION_ID) {
       throw new Error(
-        "Illegal section ID " + id + ". Probably parsing incorrectly"
+        "Illegal section ID " + id + ". Probably parsing incorrectly",
       );
     }
 
@@ -2475,7 +2475,7 @@ export class WailParser extends BufferReader {
     const newPayload = reader.write();
 
     const newPayloadLen = VarUint32ToArray(
-      newCountArray.length + newPayload.length
+      newCountArray.length + newPayload.length,
     );
 
     this.copyBuffer(newPayloadLen);
@@ -2610,7 +2610,7 @@ export class WailParser extends BufferReader {
     const newPayload = reader.write();
 
     const newPayloadLen = VarUint32ToArray(
-      newCountArray.length + newPayload.length
+      newCountArray.length + newPayload.length,
     );
 
     this.copyBuffer(newPayloadLen);
@@ -3069,7 +3069,7 @@ export class WailParser extends BufferReader {
     const newCountArray = VarUint32ToArray(newCount);
 
     const newPayloadLen = VarUint32ToArray(
-      newCountArray.length + newPayload.length
+      newCountArray.length + newPayload.length,
     );
 
     this.copyBuffer(newPayloadLen);
@@ -3124,7 +3124,7 @@ export class WailParser extends BufferReader {
 
     for (let i = 0; i < oldCount; i++) {
       const funcIndex = this._getAdjustedFunctionIndex(
-        this._importFuncCount + i
+        this._importFuncCount + i,
       );
 
       const readFunction = this._readFunction(reader, funcIndex);
@@ -3345,15 +3345,15 @@ export class WailParser extends BufferReader {
     for (let i = 0; i < localCount; i++) {
       locals.push(
         ...Array(headerReader.readVarUint32()).fill(
-          valueTypeStr[headerReader.readUint8()]
-        )
+          valueTypeStr[headerReader.readUint8()],
+        ),
       );
     }
 
     headerReader.commitBytes();
 
     const bodyReader = new BufferReader(
-      bodyPayload.subarray(headerReader.inPos)
+      bodyPayload.subarray(headerReader.inPos),
     );
 
     while (bodyReader.inPos < bodyReader.inBuffer.length) {
@@ -3702,7 +3702,7 @@ export class WailParser extends BufferReader {
             break;
           default:
             throw new Error(
-              "Unknown argument '" + arg + "' for OP_BULK_MEMORY"
+              "Unknown argument '" + arg + "' for OP_BULK_MEMORY",
             );
         }
         break;
@@ -3969,7 +3969,7 @@ export class WailParser extends BufferReader {
           throw new Error(
             "Unknown argument '" +
               arg +
-              "' for OP_ATOMIC. Probably parsing incorrectly"
+              "' for OP_ATOMIC. Probably parsing incorrectly",
           );
         }
 
@@ -3980,7 +3980,7 @@ export class WailParser extends BufferReader {
         break;
       default:
         throw new Error(
-          "Unknown opcode '" + opcode + "'. Probably parsing incorrectly"
+          "Unknown opcode '" + opcode + "'. Probably parsing incorrectly",
         );
     }
 

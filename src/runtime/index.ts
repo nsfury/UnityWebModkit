@@ -9,6 +9,7 @@ import {
 import { WebData } from "../web-data";
 import { preload } from "../preloader";
 import {
+  bufToHex,
   concatenateUint8Arrays,
   makeId,
   uint8ArrayStartsWith,
@@ -45,9 +46,14 @@ export class Runtime {
     this.logger = new Logger("UnityWebModkit");
   }
 
-  public createPlugin(name: string, version: string = "1.0.0") {
+  public createPlugin(opts: ModkitPluginOptions): ModkitPlugin {
     if (!this.startedInitializing) this.initialize();
-    const plugin = new ModkitPlugin(name, version, this);
+    const plugin = new ModkitPlugin(
+      opts.name,
+      opts.version,
+      opts.referencedAssemblies,
+      this,
+    );
     this.plugins.push(plugin);
     return plugin;
   }
@@ -55,7 +61,7 @@ export class Runtime {
   private async initialize(): Promise<void> {
     if (typeof window === "undefined") {
       console.log(
-        "\x1b[37m[UnityWebModkit]\x1b[0m \x1b[33m[WARN]\x1b[0m Not running in a browser environment! Nothing will be executed."
+        "\x1b[37m[UnityWebModkit]\x1b[0m \x1b[33m[WARN]\x1b[0m Not running in a browser environment! Nothing will be executed.",
       );
       return;
     }
@@ -66,33 +72,138 @@ export class Runtime {
     webData.unityVersion
       ? this.logger.info("Running under Unity %s", webData.unityVersion)
       : this.logger.warn("Unable to determine Unity version from web data!");
-    this.loadGlobalMetadata(webData);
+    this.readGlobalMetadataFromStorage(webData).catch(() => {
+      window.indexedDB.deleteDatabase("UnityWebModkit");
+      this.loadGlobalMetadata(webData);
+    });
   }
 
-  private loadGlobalMetadata(webData: WebData) {
+  private async loadGlobalMetadata(webData: WebData) {
     const metadataNode = webData.getNode(
-      "Il2CppData/Metadata/global-metadata.dat"
+      "Il2CppData/Metadata/global-metadata.dat",
     );
     if (!metadataNode || !metadataNode.data) {
       this.logger.error(
         new UnresolvedMetadataError(
-          "Unable to find global-metadata.dat! The game may be encrypted, corrupt or unsupported."
-        ).print()
+          "Unable to find global-metadata.dat! The game may be encrypted, corrupt or unsupported.",
+        ).print(),
       );
       return;
     }
     this.allReferencedAssemblies = this.plugins.flatMap(
-      (plugin) => plugin.referencedAssemblies
+      (plugin) => plugin.referencedAssemblies,
     );
-    const globalMetadata = createMetadata(
+    const globalMetadata = await createMetadata(
       metadataNode.data,
-      this.allReferencedAssemblies
+      this.allReferencedAssemblies,
     );
     if (globalMetadata.isErr()) {
       this.logger.error(globalMetadata.error.print());
       return;
     }
     this.globalMetadata = globalMetadata.value;
+    this.saveGlobalMetadata();
+  }
+
+  private saveGlobalMetadata() {
+    const request = window.indexedDB.open("UnityWebModkit", 2);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      const objectStore = db.createObjectStore("storage", {
+        keyPath: "name",
+      });
+      objectStore.createIndex("name", "name", { unique: true });
+      objectStore.transaction.oncomplete = () => {
+        const storageObjectStore = db
+          .transaction("storage", "readwrite")
+          .objectStore("storage");
+        storageObjectStore.add(this.globalMetadata);
+      };
+    };
+  }
+
+  private saveIl2CppContext() {
+    const request = window.indexedDB.open("UnityWebModkit", 2);
+    request.onsuccess = () => {
+      const db = request.result;
+      const storageObjectStore = db
+        .transaction("storage", "readwrite")
+        .objectStore("storage");
+      storageObjectStore.add(this.il2CppContext);
+    };
+  }
+
+  private readGlobalMetadataFromStorage(webData: WebData): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      indexedDB.databases().then(async (databases) => {
+        const uwmStore = databases.findIndex(
+          (d) => d.name === "UnityWebModkit",
+        );
+        if (uwmStore == -1) {
+          reject();
+          return;
+        }
+        const request = window.indexedDB.open("UnityWebModkit", 2);
+        request.onsuccess = () => {
+          const transaction = request.result.transaction(["storage"]);
+          const objectStore = transaction.objectStore("storage");
+          const metadataRequest = objectStore.get("metadata");
+          metadataRequest.onsuccess = async () => {
+            const metadataNode = webData.getNode(
+              "Il2CppData/Metadata/global-metadata.dat",
+            );
+            if (!metadataNode || !metadataNode.data) {
+              reject();
+              return;
+            }
+            this.allReferencedAssemblies = this.plugins.flatMap(
+              (plugin) => plugin.referencedAssemblies,
+            );
+            const globalMetadata = metadataRequest.result;
+            if (
+              JSON.stringify(this.allReferencedAssemblies.sort()) !==
+              JSON.stringify(globalMetadata.referencedAssemblies.sort())
+            ) {
+              reject();
+              return;
+            }
+            const currentHash = bufToHex(
+              await window.crypto.subtle.digest("SHA-256", metadataNode.data),
+            );
+            if (currentHash !== globalMetadata.integrityHash) {
+              reject();
+              return;
+            }
+            this.globalMetadata = globalMetadata;
+            resolve();
+          };
+        };
+      });
+    });
+  }
+
+  private readIl2CppContextFromStorage(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      indexedDB.databases().then(async (databases) => {
+        const uwmStore = databases.findIndex(
+          (d) => d.name === "UnityWebModkit",
+        );
+        if (uwmStore == -1) {
+          reject();
+          return;
+        }
+        const request = window.indexedDB.open("UnityWebModkit", 2);
+        request.onsuccess = () => {
+          const transaction = request.result.transaction(["storage"]);
+          const objectStore = transaction.objectStore("storage");
+          const il2CppRequest = objectStore.get("il2cpp");
+          il2CppRequest.onsuccess = async () => {
+            this.il2CppContext = il2CppRequest.result;
+            resolve();
+          };
+        };
+      });
+    });
   }
 
   private hookWasmInstantiate() {
@@ -103,7 +214,7 @@ export class Runtime {
 
   private async onWebAssemblyInstantiateStreaming(
     source: Response | PromiseLike<Response>,
-    importObject?: WebAssembly.Imports | undefined
+    importObject?: WebAssembly.Imports | undefined,
   ): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
     // Wait for the Il2Cpp metadata to be resolved before continuing
     await waitFor(() => this.globalMetadata);
@@ -116,7 +227,7 @@ export class Runtime {
       bufferSource = await source.arrayBuffer();
     } else {
       this.logger.error(
-        "TypeError: Got an unexpected object type as the first argument to WebAssembly.instantiateStreaming"
+        "TypeError: Got an unexpected object type as the first argument to WebAssembly.instantiateStreaming",
       );
       return Promise.reject();
     }
@@ -125,12 +236,13 @@ export class Runtime {
 
   private handleBuffer(
     bufferSource: ArrayBuffer,
-    importObject?: WebAssembly.Imports | undefined
+    importObject?: WebAssembly.Imports | undefined,
   ): Promise<WebAssembly.WebAssemblyInstantiatedSource> {
     return new Promise<WebAssembly.WebAssemblyInstantiatedSource>(
-      (resolve, reject) => {
+      async (resolve, reject) => {
         if (!importObject) importObject = {};
-        this.searchWasmBinary(bufferSource);
+        await this.readIl2CppContextFromStorage();
+        if (!this.il2CppContext) this.searchWasmBinary(bufferSource);
         if (!this.il2CppContext) {
           reject();
           return;
@@ -155,7 +267,7 @@ export class Runtime {
           this.logger.info(
             "Loading [%s %s]",
             usePlugin.name,
-            usePlugin.version
+            usePlugin.version,
           );
           var j = 0,
             hookLen = usePlugin.hooks.length;
@@ -163,7 +275,7 @@ export class Runtime {
             const useHook = usePlugin.hooks[j];
             useHook.tableIndex = this.getTableIndex(
               useHook.typeName,
-              useHook.methodName
+              useHook.methodName,
             );
             useHook.index = this.getInternalIndex(useHook.tableIndex);
             const injectName =
@@ -172,7 +284,7 @@ export class Runtime {
             if (!useHook.kind) {
               injectFunc = (...args: number[]) => {
                 const wrappedArgs: ValueWrapper[] = args.map(
-                  (arg) => new ValueWrapper(arg)
+                  (arg) => new ValueWrapper(arg),
                 );
                 const result = useHook.callback(...wrappedArgs);
                 // Unwrap arguments in case they were changed in the callback function
@@ -215,7 +327,7 @@ export class Runtime {
               (type: any) =>
                 JSON.stringify(type.params) ===
                   JSON.stringify(useHook.params) &&
-                type.returnType === useHook.returnType
+                type.returnType === useHook.returnType,
             );
             const replacementFuncIndex = wail.addImportEntry({
               moduleStr: "a",
@@ -255,7 +367,7 @@ export class Runtime {
             const tableName: string =
               this.tableName ||
               this.resolveTableName(
-                (instantiatedSource as any).instance.exports
+                (instantiatedSource as any).instance.exports,
               );
             unappliedHooks.forEach((hook) => {
               // @ts-ignore
@@ -267,10 +379,13 @@ export class Runtime {
               if (!hook.kind) {
                 // @ts-ignore
                 injectFunc = new WebAssembly.Function(
-                  { parameters: hook.params, results: hookResults },
+                  {
+                    parameters: hook.params,
+                    results: hookResults,
+                  },
                   (...args: number[]) => {
                     const wrappedArgs = args.map(
-                      (arg) => new ValueWrapper(arg)
+                      (arg) => new ValueWrapper(arg),
                     );
                     const result = hook.callback(...wrappedArgs);
                     // Unwrap arguments in case they were changed in the callback function
@@ -281,36 +396,39 @@ export class Runtime {
                       }
                       originalFunc(...args);
                     }
-                  }
+                  },
                 );
               } else {
                 // @ts-ignore
                 injectFunc = new WebAssembly.Function(
-                  { parameters: hook.params, results: hookResults },
+                  {
+                    parameters: hook.params,
+                    results: hookResults,
+                  },
                   (...args: number[]) => {
                     let originalResult = originalFunc(...args);
                     if (originalResult !== undefined)
                       originalResult = new ValueWrapper(originalResult);
                     const wrappedArgs = args.map(
-                      (arg) => new ValueWrapper(arg)
+                      (arg) => new ValueWrapper(arg),
                     );
                     hook.callback(originalResult, ...wrappedArgs);
                     return originalResult?.val();
-                  }
+                  },
                 );
               }
               // @ts-ignore
               instantiatedSource.instance.exports[tableName].set(
                 hook.tableIndex,
-                injectFunc
+                injectFunc,
               );
               hook.applied = true;
             });
             this.logger.message("Chainloader startup complete");
             resolve(instantiatedSource);
-          }
+          },
         );
-      }
+      },
     );
   }
 
@@ -319,20 +437,21 @@ export class Runtime {
     const il2CppContext = createIl2CppContext(
       bufferSource,
       this.globalMetadata,
-      this.allReferencedAssemblies
+      this.allReferencedAssemblies,
     );
     if (il2CppContext.isErr()) {
       this.logger.error(il2CppContext.error.print());
       return;
     }
     this.il2CppContext = il2CppContext.value;
+    this.saveIl2CppContext();
   }
 
   private resolveIl2CppFunctions(importObject: WebAssembly.Imports) {
     const il2CppStringNew = this.internalWasmCode.find((func: any) => {
       return uint8ArrayStartsWith(
         concatenateUint8Arrays(func.instructions),
-        [35, 0, 65, 16, 107, 34, 2, 36, 0, 32, 2, 32, 0, 32, 1, 16]
+        [35, 0, 65, 16, 107, 34, 2, 36, 0, 32, 2, 32, 0, 32, 1, 16],
       );
     });
     this.resolvedIl2CppFunctions["il2cpp_string_new"] =
@@ -363,7 +482,7 @@ export class Runtime {
     writeUint8ArrayAtOffset(
       _game.instance.Module.HEAPU8,
       new TextEncoder().encode(char),
-      charAlloc
+      charAlloc,
     );
     return _game.instance.Module.asm.il2cpp_string_new(charAlloc, char.length);
   }
@@ -378,7 +497,7 @@ export class Runtime {
     // @ts-ignore
     const _game = window.game || game;
     _game.instance.Module._free(
-      block instanceof ValueWrapper ? block.val() : block
+      block instanceof ValueWrapper ? block.val() : block,
     );
   }
 
@@ -441,6 +560,12 @@ export type HookInfo = {
 type PrefixCallback = ((...args: any) => boolean) | (() => void);
 type PostfixCallback = (...args: any) => void;
 
+type ModkitPluginOptions = {
+  name: string;
+  version?: string;
+  referencedAssemblies?: string[];
+};
+
 class ModkitPlugin {
   public readonly name: string;
   public readonly version: string;
@@ -450,10 +575,16 @@ class ModkitPlugin {
   private _hooks: Hook[] = [];
   private _runtime: Runtime;
 
-  constructor(name: string, version: string, runtime: Runtime) {
+  constructor(
+    name: string,
+    version: string | undefined,
+    referencedAssemblies: string[] | undefined,
+    runtime: Runtime,
+  ) {
     this.name = name;
-    this.version = version;
+    this.version = version || "1.0.0";
     this.logger = new Logger(name);
+    this._referencedAssemblies = referencedAssemblies || [];
     this._runtime = runtime;
   }
 
@@ -489,16 +620,12 @@ class ModkitPlugin {
     });
   }
 
-  public referenceAssemblies(assemblies: string[]) {
-    this._referencedAssemblies = assemblies;
-  }
-
   public call(target: string, args: any[]): void;
   public call(targetClass: string, targetMethod: string, args: any[]): void;
   public call(
     target: string,
     targetMethodOrArgs?: string | any[],
-    args?: any[]
+    args?: any[],
   ) {
     // @ts-ignore
     const _game = window.game || game;
@@ -508,16 +635,16 @@ class ModkitPlugin {
     if (typeof targetMethodOrArgs === "string") {
       const tableIndex = this._runtime.getTableIndex(
         target,
-        targetMethodOrArgs
+        targetMethodOrArgs,
       );
       if (tableIndex === -1)
         throw new Error(
           `Failed to invoke function! Could not find table index for ${
             target + "$$" + targetMethodOrArgs
-          }`
+          }`,
         );
       const result = _game.instance.Module.asm[tableName].get(tableIndex)(
-        ...(args as any[])
+        ...(args as any[]),
       );
       return new ValueWrapper(result);
     } else if (
@@ -530,11 +657,11 @@ class ModkitPlugin {
         throw new Error(
           `Failed to invoke function! Could not find table index for ${
             typeName + "$$" + methodName
-          }`
+          }`,
         );
       if (!targetMethodOrArgs) targetMethodOrArgs = [];
       const result = _game.instance.Module.asm[tableName].get(tableIndex)(
-        ...(targetMethodOrArgs as any[])
+        ...(targetMethodOrArgs as any[]),
       );
       return new ValueWrapper(result);
     }
@@ -576,16 +703,16 @@ export class ValueWrapper {
     // @ts-ignore
     const _game = window.game || game;
     const classPtr = new DataView(
-      _game.instance.Module.HEAPU8.slice(this._result, this._result + 4).buffer
+      _game.instance.Module.HEAPU8.slice(this._result, this._result + 4).buffer,
     ).getUint32(0, true);
     let classNamePtr = new DataView(
-      _game.instance.Module.HEAPU8.slice(classPtr + 8, classPtr + 12).buffer
+      _game.instance.Module.HEAPU8.slice(classPtr + 8, classPtr + 12).buffer,
     ).getUint32(0, true);
     const classNameReader = new BinaryReader(
       _game.instance.Module.HEAPU8.slice(
         classNamePtr,
-        classNamePtr + 128 // Assumed max length for a class name
-      ).buffer
+        classNamePtr + 128, // Assumed max length for a class name
+      ).buffer,
     );
     return classNameReader.readNullTerminatedUTF8String();
   }
@@ -596,7 +723,7 @@ export class ValueWrapper {
     const valAddress = this._result + offset;
     let valArray = _game.instance.Module.HEAPU8.slice(
       valAddress,
-      valAddress + 16
+      valAddress + 16,
     );
     const reader = new BinaryReader(valArray.buffer);
     switch (type) {
@@ -630,7 +757,7 @@ export class ValueWrapper {
     writeUint8ArrayAtOffset(
       _game.instance.Module.HEAPU8,
       writer.finalize(),
-      this._result + offset
+      this._result + offset,
     );
   }
 

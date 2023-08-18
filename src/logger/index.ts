@@ -71,7 +71,7 @@ export class Logger {
         logStyles,
         messageStyles,
         "color: default;",
-        ...args
+        ...args,
       );
     }
   }

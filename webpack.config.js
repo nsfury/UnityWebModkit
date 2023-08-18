@@ -15,7 +15,7 @@ module.exports = {
     ],
   },
   optimization: {
-    usedExports: true
+    usedExports: true,
   },
   output: {
     filename: "unity-web-modkit.[hash].js",
@@ -28,7 +28,7 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      DEVELOPMENT: 'true',
+      DEVELOPMENT: "true",
       VERSION: JSON.stringify(version),
     }),
   ],

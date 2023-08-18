@@ -29,7 +29,7 @@ export class BinaryReader {
     const startOffset = this._offset;
     while (this._view.getUint8(this._offset++) !== 0) {}
     const utf8String = this._utf8decoder.decode(
-      this._view.buffer.slice(startOffset, this._offset - 1)
+      this._view.buffer.slice(startOffset, this._offset - 1),
     );
     return utf8String;
   }
@@ -37,7 +37,7 @@ export class BinaryReader {
   public readUTF8StringWithLength() {
     const stringLength = this.readUint32();
     const utf8String = this._utf8decoder.decode(
-      this._view.buffer.slice(this._offset, this._offset + stringLength)
+      this._view.buffer.slice(this._offset, this._offset + stringLength),
     );
     this._offset += stringLength;
     return utf8String;
@@ -123,7 +123,7 @@ export class BinaryWriter {
       this._offset += 1;
     } else {
       throw new Error(
-        "Buffer overflow: Cannot write beyond the ArrayBuffer length."
+        "Buffer overflow: Cannot write beyond the ArrayBuffer length.",
       );
     }
   }
@@ -134,7 +134,7 @@ export class BinaryWriter {
       this._offset += 4;
     } else {
       throw new Error(
-        "Buffer overflow: Cannot write beyond the ArrayBuffer length."
+        "Buffer overflow: Cannot write beyond the ArrayBuffer length.",
       );
     }
   }
@@ -145,7 +145,7 @@ export class BinaryWriter {
       this._offset += 4;
     } else {
       throw new Error(
-        "Buffer overflow: Cannot write beyond the ArrayBuffer length."
+        "Buffer overflow: Cannot write beyond the ArrayBuffer length.",
       );
     }
   }
@@ -156,7 +156,7 @@ export class BinaryWriter {
       this._offset += 4;
     } else {
       throw new Error(
-        "Buffer overflow: Cannot write beyond the ArrayBuffer length."
+        "Buffer overflow: Cannot write beyond the ArrayBuffer length.",
       );
     }
   }
@@ -173,7 +173,7 @@ export class BinaryWriter {
       }
     } else {
       throw new Error(
-        "Buffer overflow: Cannot write beyond the ArrayBuffer length."
+        "Buffer overflow: Cannot write beyond the ArrayBuffer length.",
       );
     }
   }

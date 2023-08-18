@@ -1,17 +1,20 @@
 import { ok, err, Result } from "neverthrow";
 import { BinaryReader, BinaryWriter } from "../utils/binary";
 import { Il2CppContextCreationError, MetadataParsingError } from "../errors";
-import { patternSearch } from "../utils";
+import { patternSearch, bufToHex } from "../utils";
 
 export type Il2CppMetadata = {
   buffer: ArrayBuffer;
   header: Il2CppGlobalMetadataHeader;
+  integrityHash: string;
+  referencedAssemblies?: string[];
   imageDefs: Il2CppImageDefinition[];
   typeDefs: Il2CppTypeDefinition[];
   methodDefs: Il2CppMethodDefinition[];
   originalImageDefCount: number;
   originalMethodDefCount: number;
   version: number;
+  name: string;
 };
 
 type Il2CppGlobalMetadataHeader = {
@@ -152,6 +155,7 @@ export type Il2CppContext = {
   codeGenModules: Il2CppCodeGenModuleCollection;
   codeGenModuleMethodPointers: Il2CppCodeGenModuleMethodPointers;
   scriptData: Il2CppScriptData;
+  name: string;
 };
 
 type Il2CppCodeGenModule = {
@@ -197,7 +201,7 @@ type WebAssemblyDataSection = {
 export function createIl2CppContext(
   buffer: ArrayBuffer,
   metadata: Il2CppMetadata,
-  referencedAssemblies?: string[]
+  referencedAssemblies?: string[],
 ): Result<Il2CppContext, Il2CppContextCreationError> {
   const dataSections: WebAssemblyDataSection[] = [];
   const reader = new BinaryReader(buffer);
@@ -241,17 +245,17 @@ export function createIl2CppContext(
     memoryBuffer,
     bssStart,
     metadata.methodDefs.length,
-    metadata.originalImageDefCount
+    metadata.originalImageDefCount,
   );
   const codeRegistration = sectionHelper.findCodeRegistration();
   const pCodeRegistration = readCodeRegistration(
     memoryReader,
-    codeRegistration
+    codeRegistration,
   );
   const pCodeGenModules = readCodeGenModules(
     memoryReader,
     pCodeRegistration.codeGenModules,
-    pCodeRegistration.codeGenModulesCount
+    pCodeRegistration.codeGenModulesCount,
   );
   const codeGenModules: Il2CppCodeGenModuleCollection = {};
   const codeGenModuleMethodPointers: Il2CppCodeGenModuleMethodPointers = {};
@@ -264,7 +268,7 @@ export function createIl2CppContext(
     const methodPointers = readCodeGenModuleMethodPointers(
       memoryReader,
       pCodeGenModule.methodPointers,
-      pCodeGenModule.methodPointerCount
+      pCodeGenModule.methodPointerCount,
     );
     codeGenModuleMethodPointers[moduleName] = methodPointers;
   }
@@ -275,7 +279,7 @@ export function createIl2CppContext(
     let imageName = getStringFromIndex(
       metadataReader,
       metadata.header.stringOffset,
-      imageDef.nameIndex
+      imageDef.nameIndex,
     );
     let typeEnd = imageDef.typeStart + imageDef.typeCount;
     for (let k = imageDef.typeStart; k < typeEnd; k++) {
@@ -284,18 +288,18 @@ export function createIl2CppContext(
       let typeName = getStringFromIndex(
         metadataReader,
         metadata.header.stringOffset,
-        typeDef.nameIndex
+        typeDef.nameIndex,
       );
       let methodEnd = typeDef.methodStart + typeDef.method_count;
       for (let l = typeDef.methodStart; l < methodEnd; l++) {
         let methodDef = metadata.methodDefs.find(
-          (def) => def.methodIndex === l
+          (def) => def.methodIndex === l,
         );
         if (!methodDef) continue;
         let methodName = getStringFromIndex(
           metadataReader,
           metadata.header.stringOffset,
-          methodDef.nameIndex
+          methodDef.nameIndex,
         );
         let methodToken = methodDef.token;
         let ptrs = codeGenModuleMethodPointers[imageName];
@@ -304,7 +308,7 @@ export function createIl2CppContext(
         const namespaceName = getStringFromIndex(
           metadataReader,
           metadata.header.stringOffset,
-          typeDef.namespaceIndex
+          typeDef.namespaceIndex,
         );
         const fullTypeName =
           namespaceName === "" ? typeName : namespaceName + "." + typeName;
@@ -327,41 +331,42 @@ export function createIl2CppContext(
     codeGenModules,
     codeGenModuleMethodPointers,
     scriptData,
+    name: "il2cpp",
   });
 }
 
-export function createMetadata(
+export async function createMetadata(
   buffer: ArrayBuffer,
-  referencedAssemblies?: string[]
-): Result<Il2CppMetadata, MetadataParsingError> {
+  referencedAssemblies?: string[],
+): Promise<Result<Il2CppMetadata, MetadataParsingError>> {
   const reader = new BinaryReader(buffer);
   const sanity = reader.readUint32();
   if (sanity !== 0xfab11baf)
     return err(
       new MetadataParsingError(
-        "Metadata file supplied is not a valid metadata file."
-      )
+        "Metadata file supplied is not a valid metadata file.",
+      ),
     );
   const version = reader.readUint32();
   if (version < 0 || version > 1000)
     return err(
       new MetadataParsingError(
-        "Metadata file supplied is not a valid metadata file."
-      )
+        "Metadata file supplied is not a valid metadata file.",
+      ),
     );
   // TODO: Support more metadata versions
   if (version !== 29)
     return err(
       new MetadataParsingError(
-        `Metadata file supplied is not a supported version [${version}].`
-      )
+        `Metadata file supplied is not a supported version [${version}].`,
+      ),
     );
   reader.seek(0);
   const header = readHeader(reader);
   const imageDefs = readImageDefinitions(
     reader,
     header.imagesOffset,
-    header.imagesSize
+    header.imagesSize,
   );
   const referencedImageDefs = [];
   var i = 0,
@@ -371,7 +376,7 @@ export function createMetadata(
     const imageName = getStringFromIndex(
       reader,
       header.stringOffset,
-      imageDef.nameIndex
+      imageDef.nameIndex,
     );
     if (referencedAssemblies?.includes(imageName))
       referencedImageDefs.push(imageDef);
@@ -381,12 +386,12 @@ export function createMetadata(
     reader,
     header.typeDefinitionsOffset,
     header.typeDefinitionsSize,
-    referencedImageDefs
+    referencedImageDefs,
   );
   const methodDefs = readMethodDefinitions(
     reader,
     header.methodsOffset,
-    header.methodsSize
+    header.methodsSize,
   );
   const referencedMethodDefs = [];
   (i = 0), (len = methodDefs.length);
@@ -398,6 +403,9 @@ export function createMetadata(
       referencedMethodDefs.push(methodDef);
     i++;
   }
+  const integrityHash = bufToHex(
+    await window.crypto.subtle.digest("SHA-256", buffer),
+  );
   return ok({
     buffer,
     header,
@@ -407,13 +415,16 @@ export function createMetadata(
     originalImageDefCount: imageDefs.length,
     originalMethodDefCount: methodDefs.length,
     version,
+    name: "metadata",
+    referencedAssemblies,
+    integrityHash,
   });
 }
 
 function getStringFromIndex(
   reader: BinaryReader,
   base: number,
-  offset: number
+  offset: number,
 ) {
   reader.seek(base + offset);
   return reader.readNullTerminatedUTF8String();
@@ -422,7 +433,7 @@ function getStringFromIndex(
 function isReferencedType(
   imageDefinitions: Il2CppImageDefinition[],
   typeDefinitionsOffset: number,
-  readerOffset: number
+  readerOffset: number,
 ) {
   const typeDefStructSize = 88; // TODO: define this somewhere else
 
@@ -521,7 +532,7 @@ function readHeader(reader: BinaryReader): Il2CppGlobalMetadataHeader {
 function readImageDefinitions(
   reader: BinaryReader,
   offset: number,
-  size: number
+  size: number,
 ): Il2CppImageDefinition[] {
   reader.seek(offset);
   const imageDefinitions = [];
@@ -547,7 +558,7 @@ function readTypeDefinitions(
   reader: BinaryReader,
   offset: number,
   size: number,
-  imageDefinitions: Il2CppImageDefinition[]
+  imageDefinitions: Il2CppImageDefinition[],
 ): Il2CppTypeDefinition[] {
   reader.seek(offset);
   const typeDefinitions = [];
@@ -594,7 +605,7 @@ function readTypeDefinitions(
 function readMethodDefinitions(
   reader: BinaryReader,
   offset: number,
-  size: number
+  size: number,
 ): Il2CppMethodDefinition[] {
   reader.seek(offset);
   const methodDefinitions = [];
@@ -643,7 +654,7 @@ function readCodeRegistration(reader: BinaryReader, offset: number) {
 function readCodeGenModules(
   reader: BinaryReader,
   offset: number,
-  size: number
+  size: number,
 ) {
   reader.seek(offset);
   const modules = [];
@@ -655,7 +666,7 @@ function readCodeGenModules(
 
 function readCodeGenModule(
   reader: BinaryReader,
-  offset: number
+  offset: number,
 ): Il2CppCodeGenModule {
   reader.seek(offset);
   return {
@@ -682,7 +693,7 @@ function readCodeGenModule(
 function readCodeGenModuleMethodPointers(
   reader: BinaryReader,
   offset: number,
-  size: number
+  size: number,
 ) {
   reader.seek(offset);
   const methodPointers = [];
@@ -697,7 +708,7 @@ function getSectionHelper(
   memoryBuffer: ArrayBuffer,
   bssStart: number,
   methodCount: number,
-  imageCount: number
+  imageCount: number,
 ) {
   const exec = {
     offset: 0,

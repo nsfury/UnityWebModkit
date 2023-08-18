@@ -15,7 +15,7 @@ export class WebData {
 
   public constructor(
     buffer: ArrayBuffer,
-    resolvableNodes?: [string, number?][]
+    resolvableNodes?: [string, number?][],
   ) {
     const reader = new BinaryReader(buffer);
     this.signature = reader.readNullTerminatedUTF8String();
@@ -27,7 +27,7 @@ export class WebData {
         name: reader.readUTF8StringWithLength(),
       };
       const resolvableNode = resolvableNodes?.find(
-        (item) => item[0] === node.name
+        (item) => item[0] === node.name,
       );
       if (!resolvableNode) continue;
       node.size = resolvableNode[1] ?? node.size;
