@@ -228,6 +228,7 @@ export class Runtime {
             oldFuncIndexes.push(oldFuncIndex);
             ++j;
           }
+          if (usePlugin.onLoaded) usePlugin.onLoaded();
           ++i;
         }
         wail.addInstructionParser(OP_CALL, (instrBytes: any) => {
@@ -444,6 +445,7 @@ class ModkitPlugin {
   public readonly name: string;
   public readonly version: string;
   public readonly logger: Logger;
+  public onLoaded: (() => void) | undefined = undefined;
   private _referencedAssemblies: string[] = [];
   private _hooks: Hook[] = [];
   private _runtime: Runtime;
