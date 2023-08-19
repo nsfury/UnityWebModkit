@@ -501,6 +501,13 @@ export class Runtime {
     return _game.instance.Module.asm.il2cpp_string_new(charAlloc, char.length);
   }
 
+  public memory(address: number | ValueWrapper, size: number): Uint8Array {
+    // @ts-ignore
+    const _game = window.game || game;
+    if (address instanceof ValueWrapper) address = address.val();
+    return _game.instance.Module.HEAPU8.slice(address, address + size);
+  }
+
   public malloc(size: number): number {
     // @ts-ignore
     const _game = window.game || game;
@@ -696,11 +703,18 @@ class ModkitPlugin {
     return new ValueWrapper(this._runtime.createMstr(char));
   }
 
+  public memory(
+    address: ValueWrapper | number,
+    size: number = 256,
+  ): Uint8Array {
+    return this._runtime.memory(address, size);
+  }
+
   public malloc(size: number): ValueWrapper {
     return new ValueWrapper(this._runtime.malloc(size));
   }
 
-  public free(block: number | ValueWrapper) {
+  public free(block: ValueWrapper | number) {
     this._runtime.free(block);
   }
 }
