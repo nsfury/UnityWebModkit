@@ -283,6 +283,21 @@ export class Runtime {
             let injectFunc = null;
             if (!useHook.kind) {
               injectFunc = (...args: number[]) => {
+                // @ts-ignore
+                const _game = window.game || game;
+                const tableName: string =
+                  this.tableName ||
+                  this.resolveTableName(_game.instance.Module.asm);
+                const originalFunction = _game.instance.Module.asm[
+                  tableName
+                ].get(useHook.tableIndex);
+                if (!useHook.enabled) {
+                  if (useHook.returnType) {
+                    return originalFunction(...args);
+                  }
+                  originalFunction(...args);
+                  return;
+                }
                 const wrappedArgs: ValueWrapper[] = args.map(
                   (arg) => new ValueWrapper(arg),
                 );
@@ -290,14 +305,6 @@ export class Runtime {
                 // Unwrap arguments in case they were changed in the callback function
                 args = wrappedArgs.map((arg) => arg.val());
                 if (result === undefined || result === true) {
-                  // @ts-ignore
-                  const _game = window.game || game;
-                  const tableName: string =
-                    this.tableName ||
-                    this.resolveTableName(_game.instance.Module.asm);
-                  const originalFunction = _game.instance.Module.asm[
-                    tableName
-                  ].get(useHook.tableIndex);
                   if (useHook.returnType) {
                     return originalFunction(...args);
                   }
@@ -315,6 +322,8 @@ export class Runtime {
                   tableName
                 ].get(useHook.tableIndex);
                 let originalResult = originalFunction(...args);
+                if (!useHook.enabled)
+                  return useHook.returnType ? originalResult : undefined;
                 if (originalResult !== undefined)
                   originalResult = new ValueWrapper(originalResult);
                 const wrappedArgs = args.map((arg) => new ValueWrapper(arg));
@@ -384,6 +393,13 @@ export class Runtime {
                     results: hookResults,
                   },
                   (...args: number[]) => {
+                    if (!hook.enabled) {
+                      if (hook.returnType) {
+                        return originalFunc(...args);
+                      }
+                      originalFunc(...args);
+                      return;
+                    }
                     const wrappedArgs = args.map(
                       (arg) => new ValueWrapper(arg),
                     );
@@ -407,6 +423,8 @@ export class Runtime {
                   },
                   (...args: number[]) => {
                     let originalResult = originalFunc(...args);
+                    if (!hook.enabled)
+                      return hook.returnType ? originalResult : undefined;
                     if (originalResult !== undefined)
                       originalResult = new ValueWrapper(originalResult);
                     const wrappedArgs = args.map(
@@ -567,6 +585,7 @@ type Hook = {
   params: string[];
   returnType?: string;
   applied: boolean;
+  enabled: boolean;
   kind: number;
   callback: PrefixCallback | PostfixCallback;
 };
@@ -617,28 +636,31 @@ class ModkitPlugin {
     return this._referencedAssemblies;
   }
 
-  public hookPrefix(target: HookInfo, callback: PrefixCallback): void {
-    this._hooks.push({
-      typeName: target.typeName,
-      methodName: target.methodName,
-      params: target.params,
-      returnType: target.returnType,
-      applied: false,
-      kind: 0,
-      callback,
-    });
+  public hookPrefix(target: HookInfo, callback: PrefixCallback): Hook {
+    return this.hook(target, callback, 0);
   }
 
-  public hookPostfix(target: HookInfo, callback: PostfixCallback): void {
-    this._hooks.push({
+  public hookPostfix(target: HookInfo, callback: PostfixCallback): Hook {
+    return this.hook(target, callback, 1);
+  }
+
+  private hook(
+    target: HookInfo,
+    callback: PrefixCallback | PostfixCallback,
+    kind: number,
+  ): Hook {
+    const hook = {
       typeName: target.typeName,
       methodName: target.methodName,
       params: target.params,
       returnType: target.returnType,
       applied: false,
-      kind: 1,
+      enabled: true,
+      kind,
       callback,
-    });
+    };
+    this._hooks.push(hook);
+    return hook;
   }
 
   public call(target: string, args: any[]): void;
