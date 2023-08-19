@@ -657,6 +657,10 @@ class ModkitPlugin {
             target + "$$" + targetMethodOrArgs
           }`,
         );
+      if (args)
+        args = args.map((arg) =>
+          arg instanceof ValueWrapper ? arg.val() : arg,
+        );
       const result = _game.instance.Module.asm[tableName].get(tableIndex)(
         ...(args as any[]),
       );
@@ -674,6 +678,9 @@ class ModkitPlugin {
           }`,
         );
       if (!targetMethodOrArgs) targetMethodOrArgs = [];
+      targetMethodOrArgs = targetMethodOrArgs.map((arg) =>
+        arg instanceof ValueWrapper ? arg.val() : arg,
+      );
       const result = _game.instance.Module.asm[tableName].get(tableIndex)(
         ...(targetMethodOrArgs as any[]),
       );
@@ -705,8 +712,8 @@ export class ValueWrapper {
     this._result = result;
   }
 
-  public set(value: number) {
-    this._result = value;
+  public set(value: ValueWrapper | number) {
+    this._result = value instanceof ValueWrapper ? value.val() : value;
   }
 
   public val(): number {
@@ -761,11 +768,16 @@ export class ValueWrapper {
     }
   }
 
-  public writeField(offset: number, type: string, value: number) {
+  public writeField(
+    offset: number,
+    type: string,
+    value: ValueWrapper | number,
+  ) {
     // @ts-ignore
     const _game = window.game || game;
     let size = type === "f32" || type === "i32" || type === "u32" ? 4 : 8;
     const writer = new BinaryWriter(new ArrayBuffer(size));
+    if (value instanceof ValueWrapper) value = value.val();
     switch (type) {
       case "i32":
         writer.writeInt32(value);
