@@ -6,7 +6,7 @@ UnityWebModkit is a game patcher and modding framework for Unity WebGL games.
 
 Currently, the tool has only been tested on and confirmed compatible with games made in [Unity 2021.3.15f1](https://unity.com/releases/editor/whats-new/2021.3.15) targetting the IL2CPP backend.
 
-Here is a non-exhaustive list of games have been found to be compatible:
+Here is a non-exhaustive list of games that have been found to be compatible:
 
 - [Zombs Royale](https://zombsroyale.io)
 - [Betrayal.io](https://betrayal.io)
