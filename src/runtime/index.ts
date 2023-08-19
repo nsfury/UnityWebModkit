@@ -703,10 +703,7 @@ class ModkitPlugin {
     return new ValueWrapper(this._runtime.createMstr(char));
   }
 
-  public memory(
-    address: ValueWrapper | number,
-    size: number = 256,
-  ): Uint8Array {
+  public slice(address: ValueWrapper | number, size: number = 256): Uint8Array {
     return this._runtime.memory(address, size);
   }
 
