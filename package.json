@@ -6,7 +6,7 @@
   "types": "./lib/mod.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "del /q /s dist && tsc && npx webpack"
+    "build": "del /q /s dist && tsc && npx webpack && powershell -Command \"(Get-Content -Path ./dist/*.js -Raw) -replace 'window.UnityWebModkit=n', 'if (!unsafeWindow?.UnityWebModkit)unsafeWindow.UnityWebModkit = n,window.UnityWebModkit = n' | Set-Content -Path ./dist/*.js\""
   },
   "files": [
     "lib"

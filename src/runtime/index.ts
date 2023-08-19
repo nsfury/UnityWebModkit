@@ -454,8 +454,11 @@ export class Runtime {
         [35, 0, 65, 16, 107, 34, 2, 36, 0, 32, 2, 32, 0, 32, 1, 16],
       );
     });
+    const importObjectSize = Object.keys(importObject.a).length;
     this.resolvedIl2CppFunctions["il2cpp_string_new"] =
-      il2CppStringNew.preservedIndex + Object.keys(importObject.a).length;
+      il2CppStringNew.preservedIndex + importObjectSize;
+    // TODO: This is a hack, but seems to work consistently with Unity 2021.3.15f1
+    this.resolvedIl2CppFunctions["il2cpp_object_new"] = importObjectSize + 3;
   }
 
   private exportIl2CppFunctions(wail: WailParser) {
@@ -473,6 +476,17 @@ export class Runtime {
       Object.keys(asm).find((key) => asm[key].constructor.name == "Table") ||
       "Unknown"
     );
+  }
+
+  public createObject(typeInfo: number | ValueWrapper): number {
+    // @ts-ignore
+    const _game = window.game || game;
+    console.log("creating object with typeinfo", typeInfo);
+    const result = _game.instance.Module.asm.il2cpp_object_new(
+      typeInfo instanceof ValueWrapper ? typeInfo.val() : typeInfo,
+    );
+    console.log("created object result at", result);
+    return result;
   }
 
   public createMstr(char: string): number {
@@ -667,8 +681,12 @@ class ModkitPlugin {
     }
   }
 
-  public createMstr(char: string): number {
-    return this._runtime.createMstr(char);
+  public createObject(typeInfo: ValueWrapper | number): ValueWrapper {
+    return new ValueWrapper(this._runtime.createObject(typeInfo));
+  }
+
+  public createMstr(char: string): ValueWrapper {
+    return new ValueWrapper(this._runtime.createMstr(char));
   }
 
   public malloc(size: number): ValueWrapper {
@@ -697,6 +715,11 @@ export class ValueWrapper {
 
   public mstr() {
     return ValueWrapper.readUtf16Char(this._result + 12);
+  }
+
+  public deref(): ValueWrapper | undefined {
+    const val = this.readField(0, "u32")?.val();
+    return val ? new ValueWrapper(val) : undefined;
   }
 
   public getClassName(): string {
