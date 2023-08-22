@@ -762,22 +762,29 @@ export class ValueWrapper {
     return val ? new ValueWrapper(val) : undefined;
   }
 
-  public getClassName(): string {
-    // @ts-ignore
-    const _game = window.game || game;
-    const classPtr = new DataView(
-      _game.instance.Module.HEAPU8.slice(this._result, this._result + 4).buffer,
-    ).getUint32(0, true);
-    let classNamePtr = new DataView(
-      _game.instance.Module.HEAPU8.slice(classPtr + 8, classPtr + 12).buffer,
-    ).getUint32(0, true);
-    const classNameReader = new BinaryReader(
-      _game.instance.Module.HEAPU8.slice(
-        classNamePtr,
-        classNamePtr + 128, // Assumed max length for a class name
-      ).buffer,
-    );
-    return classNameReader.readNullTerminatedUTF8String();
+  public getClassName(): string | null {
+    try {
+      // @ts-ignore
+      const _game = window.game || game;
+      const classPtr = new DataView(
+        _game.instance.Module.HEAPU8.slice(
+          this._result,
+          this._result + 4,
+        ).buffer,
+      ).getUint32(0, true);
+      let classNamePtr = new DataView(
+        _game.instance.Module.HEAPU8.slice(classPtr + 8, classPtr + 12).buffer,
+      ).getUint32(0, true);
+      const classNameReader = new BinaryReader(
+        _game.instance.Module.HEAPU8.slice(
+          classNamePtr,
+          classNamePtr + 128, // Assumed max length for a class name
+        ).buffer,
+      );
+      return classNameReader.readNullTerminatedUTF8String();
+    } catch {
+      return null;
+    }
   }
 
   public readField(offset: number, type: string) {
