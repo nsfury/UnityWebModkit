@@ -1,5 +1,11 @@
-// TODO: Resolve and create these kinds of enums dynamically (and remove hardcoding)
+export const dataTypeSizes: { [key: string]: number } = {
+  u8: 1,
+  u32: 4,
+  i32: 4,
+  f32: 4,
+};
 
+// TODO: Resolve and create these kinds of enums dynamically (and remove hardcoding)
 export enum KeyCode {
   None = 0,
   Backspace = 8,

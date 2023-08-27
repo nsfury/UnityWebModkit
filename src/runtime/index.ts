@@ -27,6 +27,7 @@ import {
   WailVariable,
 } from "../wail";
 import { BinaryReader, BinaryWriter } from "../utils/binary";
+import { dataTypeSizes } from "../extras";
 
 export class Runtime {
   public tableName: string | undefined;
@@ -793,7 +794,7 @@ export class ValueWrapper {
     const valAddress = this._result + offset;
     let valArray = _game.instance.Module.HEAPU8.slice(
       valAddress,
-      valAddress + 16,
+      valAddress + 4,
     );
     const reader = new BinaryReader(valArray.buffer);
     switch (type) {
@@ -815,10 +816,13 @@ export class ValueWrapper {
   ) {
     // @ts-ignore
     const _game = window.game || game;
-    let size = type === "f32" || type === "i32" || type === "u32" ? 4 : 8;
+    let size = dataTypeSizes[type];
     const writer = new BinaryWriter(new ArrayBuffer(size));
     if (value instanceof ValueWrapper) value = value.val();
     switch (type) {
+      case "u8":
+        writer.writeUint8(value);
+        break;
       case "i32":
         writer.writeInt32(value);
         break;
