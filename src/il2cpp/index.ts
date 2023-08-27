@@ -290,6 +290,11 @@ export function createIl2CppContext(
         metadata.header.stringOffset,
         typeDef.nameIndex,
       );
+      const namespaceName = getStringFromIndex(
+        metadataReader,
+        metadata.header.stringOffset,
+        typeDef.namespaceIndex,
+      );
       let methodEnd = typeDef.methodStart + typeDef.method_count;
       for (let l = typeDef.methodStart; l < methodEnd; l++) {
         let methodDef = metadata.methodDefs.find(
@@ -305,11 +310,6 @@ export function createIl2CppContext(
         let ptrs = codeGenModuleMethodPointers[imageName];
         let methodPointerIndex = methodToken & 0x00ffffff;
         const ptr = ptrs[methodPointerIndex - 1];
-        const namespaceName = getStringFromIndex(
-          metadataReader,
-          metadata.header.stringOffset,
-          typeDef.namespaceIndex,
-        );
         const fullTypeName =
           namespaceName === "" ? typeName : namespaceName + "." + typeName;
         if (!scriptData[fullTypeName]) {
