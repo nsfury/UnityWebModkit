@@ -737,6 +737,20 @@ class ModkitPlugin {
   public free(block: ValueWrapper | number) {
     this._runtime.free(block);
   }
+
+  public memcpy(
+    dest: ValueWrapper | number,
+    src: ValueWrapper | number,
+    count: number,
+  ) {
+    // @ts-ignore
+    const _game = window.game || game;
+    writeUint8ArrayAtOffset(
+      _game.instance.Module.HEAPU8,
+      this.slice(src, count),
+      dest instanceof ValueWrapper ? dest.val() : dest,
+    );
+  }
 }
 
 export class ValueWrapper {
