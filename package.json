@@ -4,7 +4,8 @@
   "description": "Unity WebGL game patcher and modding framework",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "prettier --write ."
   },
   "author": "nsfury",
   "license": "ISC",
