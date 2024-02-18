@@ -1,0 +1,21 @@
+{
+  "name": "unity-web-modkit",
+  "version": "1.0.0",
+  "description": "Unity WebGL game patcher and modding framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged"
+    }
+  },
+  "author": "nsfury",
+  "license": "ISC",
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "prettier": "3.2.5",
+    "pretty-quick": "^4.0.0"
+  }
+}
